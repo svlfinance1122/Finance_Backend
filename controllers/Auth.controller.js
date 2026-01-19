@@ -293,8 +293,8 @@ const sendOtpToUser = async (req, res) => {
 
     // 🔹 Send email using Resend
     const result = await resend.emails.send({
-      from: "Acme <onboarding@resend.dev>",
-      to: [process.env.EMAIL_USER], // array is safer
+      from: "OTP <otp@yourdomain.com>",
+      to: ["svlfinance1122@gmail.com"], // array is safer
       subject: "Your OTP Code",
       text: `Your OTP is ${otp}. Valid for 5 minutes.`,
     });
