@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 require("dotenv").config();
 const { Resend } = require("resend");
-const resend = new Resend("re_5zagYLyK_La8ao54BEosZxQrX8LTm98fW");
+const resend = new Resend("re_6NfR3mcT_6EMPuKs3bhfk3RC2WwbTahxm");
 const otpStore = {};
 
 const loginUser = async (req, res, next) => {
@@ -293,8 +293,8 @@ const sendOtpToUser = async (req, res) => {
 
     // 🔹 Send email using Resend
     const result = await resend.emails.send({
-      from: "Acme <onboarding@resend.dev>",
-      to: [process.env.EMAIL_USER], // array is safer
+    from: 'onboarding@resend.dev',
+  to: 'ucanseelater@gmail.com',
       subject: "Your OTP Code",
       text: `Your OTP is ${otp}. Valid for 5 minutes.`,
     });

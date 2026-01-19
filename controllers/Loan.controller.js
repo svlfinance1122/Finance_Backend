@@ -479,94 +479,109 @@ const downloadReport = async (req, res, next) => {
     /* ======================================================
        2️⃣ COLLECTION → EXCEL
     ====================================================== */
-    if (dataType === "Collection") {
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Collections");
-      const columns = [
-        { header: "S.No", key: "sno", width: 8 },
-        { header: "Name", key: "name", width: 20 },
-        { header: "Date", key: "date", width: 15 },
-        { header: "Amount", key: "amount", width: 15 },
-      ];
+if (dataType === "Collection") {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Collections");
 
-      /* ================= TITLE ================= */
-      const mergeColumnCount = Math.max(columns.length, 8);
+  const columns = [
+    { header: "S.No", key: "sno", width: 8 },
+    { header: "Name", key: "name", width: 20 },
+    { header: "Date", key: "date", width: 15 },
+    { header: "Amount", key: "amount", width: 15 },
+  ];
 
-      sheet.addRow([headerText]);
-      sheet.mergeCells(1, 1, 1, mergeColumnCount);
+  /* ================= SET COLUMNS FIRST ================= */
+  sheet.columns = columns;
 
-      const titleRow = sheet.getRow(1);
-      titleRow.font = { bold: true };
-      titleRow.alignment = {
-        horizontal: "center",
-        vertical: "middle",
-        wrapText: true,
-      };
-      titleRow.height = 35;
+  /* ================= TITLE (FIXED) ================= */
+  sheet.mergeCells(1, 1, 1, columns.length);
 
-      sheet.addRow([]);
-      sheet.addRow([]);
+  // ✅ SET VALUE AFTER MERGE
+  const titleCell = sheet.getCell("A1");
+  titleCell.value = headerText;
+  titleCell.font = { bold: true };
+  titleCell.alignment = {
+    horizontal: "center",
+    vertical: "middle",
+    wrapText: true,
+  };
 
-      /* ================= COLUMN HEADERS ================= */
-      const headerRow = sheet.addRow(columns.map(c => c.header));
-      headerRow.font = { bold: true };
+  sheet.getRow(1).height = 40;
 
-      /* ================= COLUMN CONFIG ================= */
-      sheet.columns = columns.map(c => ({
-        key: c.key,
-        width: c.width,
-      }));
+  sheet.addRow([]);
+  sheet.addRow([]);
 
-      /* ================= DATA ================= */
-      const collections = await LoanTable.findAll({
-        order: [["date", "ASC"]],
-      });
+  /* ================= HEADERS ================= */
+  const headerRow = sheet.addRow(columns.map(c => c.header));
+  headerRow.font = { bold: true };
 
-      const loanIds = [...new Set(collections.map(c => c.loanId))];
+  /* =====================================================
+     1️⃣ FETCH ONLY VALID USERS
+  ===================================================== */
+  const users = await LoanUser.findAll({
+    where: {
+      ...(section && { section }),
+      sno: { [Op.ne]: null },
+      name: { [Op.ne]: null },
+    },
+    attributes: ["loanId", "sno", "name"],
+    order: [["sno", "ASC"]],
+  });
 
-      const users = await LoanUser.findAll({
-        where: {
-          loanId: { [Op.in]: loanIds },
-          ...(section && { section }) // ✅ section filter
-        },
-        order: [["sno", "ASC"]],
-      });
+  if (!users.length) {
+    return res.status(404).json({ message: "No valid users found" });
+  }
 
-      const userMap = {};
-      users.forEach(u => {
-        userMap[u.loanId] = u;
-      });
+  /* ================= USER MAP ================= */
+  const userMap = {};
+  users.forEach(u => {
+    if (u.sno && u.name) userMap[u.loanId] = u;
+  });
 
-      let totalCollection = 0;
+  const validLoanIds = Object.keys(userMap);
 
-      collections.forEach(c => {
-        const amt = Number(c.amount || 0);
-        totalCollection += amt;
+  /* ================= COLLECTIONS ================= */
+  const collections = await LoanTable.findAll({
+    where: {
+      loanId: { [Op.in]: validLoanIds },
+    },
+    order: [["date", "ASC"]],
+  });
 
-        sheet.addRow({
-          sno: userMap[c.loanId]?.sno || "",
-          name: userMap[c.loanId]?.name || "",
-          date: formatDateDMY(c.date),
-          amount: amt,
-        });
-      });
+  let totalCollection = 0;
 
-      /* ================= TOTAL ================= */
-      const totalRow = sheet.addRow({
-        name: "TOTAL",
-        amount: totalCollection,
-      });
-      totalRow.font = { bold: true };
+  collections.forEach(c => {
+    const user = userMap[c.loanId];
+    if (!user) return;
 
-      /* ================= DOWNLOAD ================= */
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=collections_${Date.now()}.xlsx`
-      );
+    const amt = Number(c.amount || 0);
+    totalCollection += amt;
 
-      await workbook.xlsx.write(res);
-      return res.end();
-    }
+    sheet.addRow({
+      sno: user.sno,
+      name: user.name,
+      date: formatDateDMY(c.date),
+      amount: amt,
+    });
+  });
+
+  /* ================= TOTAL ================= */
+  const totalRow = sheet.addRow({
+    name: "TOTAL",
+    amount: totalCollection,
+  });
+  totalRow.font = { bold: true };
+
+  /* ================= DOWNLOAD ================= */
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=collections_${Date.now()}.xlsx`
+  );
+
+  await workbook.xlsx.write(res);
+  return res.end();
+}
+
 
     /* ======================================================
        3️⃣ FULL DATA → PDF
