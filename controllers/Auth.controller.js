@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 require("dotenv").config();
 const { Resend } = require("resend");
-const resend = new Resend("re_5zagYLyK_La8ao54BEosZxQrX8LTm98fW");
+const resend = new Resend("re_JrQwqxwj_YxMAGwmkzycVkAP42LbyDFG4");
 const otpStore = {};
 
 const loginUser = async (req, res, next) => {
